@@ -6,6 +6,7 @@ in a webserver
 
 ### TODO things
 
+- logs stored in some other location
 - Subcommand list to list the URLs in the database
 - Subcommand init to delete the database and start a new crawl proces
 - subcommand run to get a URL form the pending list and check it

@@ -106,7 +106,7 @@ def check_url(base_path, url):
         return f"{url} [NON LOCAL -  SKIPPED]"
     full_url = join_with_base(base_path, url)
     status_ok = check_url_status(full_url)
-    click.echo(f"  - {full_url} [{OK if status_ok else ERROR}]")
+    click.echo(f"  - {full_url} {OK if status_ok else ERROR}")
     return status_ok
 
 
@@ -167,21 +167,15 @@ def db_pending_urls(db):
 @click.option('--port', default=80, help="Port of web server")
 @click.argument('host', default='localhost')
 def main(host, port, path):
-    print('host is', host)
-    print('port is', port)
-    print('path is', path)
     base_path = f'http://{host}:{port}/'
     if path:
         base_path = join_with_base(base_path, path)
-    print('base_path is', base_path)
     db = db_connect()
-    print('db is', db)
     add_url(db, base_path)
     for url in db_pending_urls(db):
         click.echo(f'Start crawling on {base_path}')
         num_errors, new_links = check_page(base_path, url)
         mark_url_as_checked(db, url, num_errors)
-    print('ok')
 
 
 if __name__ == "__main__":
