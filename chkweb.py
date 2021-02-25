@@ -1,181 +1,102 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from html.parser import HTMLParser
-from urllib.parse import urlparse
+import logging.config
 
-import os
-import sqlite3
-import logging
+import fire
 
-import click
-import itertools
-import requests
+import settings
+import checks
+import dba
+
+__version__ = "0.1.3"
 
 OK = "[OK] \u001b[32m✓\u001b[0m"
+
 ERROR = "[ERROR] \u001b[31m✖\u001b[0m"
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logger.addHandler(
-    logging.FileHandler('chkweb.log', encoding='utf-8')
-    )
+logging.config.dictConfig(settings.LOGGING)
+logger = logging.getLogger('chkweb')
 
 
-def db_connect(db_filename='pages.db'):
-    is_new = not os.path.exists(db_filename)
-    conn = sqlite3.connect(db_filename)
-    logger.info('Conectando a la base de datos %s', db_filename)
-    if is_new:
-        logger.info('- Primera conexión a la base de datos, crearé el squema')
-        db_create_schema(conn)
-        logger.info('- Base de datos creada')
-    logger.info('Establecida conexión con la base de datos')
-    return conn
+def status():
+    """Show statistics about the crawling process.
+    """
+    db = dba.connect()
+    stats = dba.get_status(db)
+    total_pages = stats['checked_pages'] + stats['pending_pages']
+    print('--[Status]---------------------------')
+    print(f"Total pages known in database: {total_pages}")
+    print(" - Processed: {checked_pages}".format(**stats))
+    print(" - Failed: {failed_pages}".format(**stats))
+    print(" - Pending: {pending_pages}".format(**stats))
+    if total_pages:
+        checked_pages = stats['checked_pages']
+        progress = round(checked_pages * 100 / total_pages, 2)
+        print(f"Progress: {progress:.2f}%")
+    print('-------------------------------------')
 
 
-def db_create_schema(db_conn, schema_filename='database-schema.sql'):
-    with open(schema_filename) as _f:
-        db_conn.executescript(_f.read())
+def _list(db=None):
+    """Shows a list of all the url address in the database.
+    """
+    db = db or dba.connect()
+    for row in dba.get_all_pages(db):
+        print("{id_page:10} {url:70} {is_checked}".format(**row))
 
 
-def db_exist_url(db, url):
-    sql = "SELECT count(*) FROM  page WHERE url = ?"
-    cur = db.cursor()
-    cur.execute(sql, (url,))
-    result = cur.fetchone()
-    return bool(result[0])
+def dump(db=None):
+    """Dunmp all the address in CVS format.
+    """
+    db = db or dba.connect()
+    print("id_page;url;created_at;is_checked;num_errors")
+    for row in dba.get_all_pages(db):
+        print(*row, sep=";")
 
 
-def add_url(db, url):
-    if db_exist_url(db, url):
-        return 0
-    sql = "INSERT INTO page (url) VALUES (?)"
-    cur = db.cursor()
-    try:
-        result = cur.execute(sql, (url,))
-        db.commit()
-        return result
-    finally:
-        cur.close()
+def start(base_url='http://localhost/'):
+    """Create a new database and initialize the crawling process.
+    """
+    logger.info('Crawling starts at %s', base_url)
+    db = dba.connect()
+    dba.reset(db)
+    assert not dba.exists_url(db, base_url)
+    dba.add_url(db, base_url)
+    assert dba.exists_url(db, base_url)
+    advance(db)
 
 
-def mark_url_as_checked(db, url, num_errors):
-    sql = (
-        "UPDATE page"
-        "   SET is_checked = 1,"
-        "       num_errors = ?"
-        " WHERE url = ?"
-    )
-    cur = db.cursor()
-    try:
-        result = cur.execute(sql, (num_errors, url,))
-        db.commit()
-        return result
-    finally:
-        cur.close()
+def advance(db=None):
+    db = db or dba.connect()
+    for (i, page) in enumerate(dba.pending_urls(db)):
+        url = page['url']
+        logger.info('Checking %s', url)
+        print(f"- checking {url}", end=' ')
+        list_of_errors, new_links = checks.check_page(url)
+        print(ERROR if list_of_errors else OK)
+        dba.mark_url_as_checked(db, url, list_of_errors)
+        for new_url in new_links:
+            dba.add_url(db, new_url)
+            assert dba.exists_url(db, new_url)
+        if i > 10:
+            break
 
 
-
-def is_local_url(url):
-    if url.lower().startswith('http'):
-        return False
-    if url.lower().startswith('//'):
-        return False
-    return True
+def version():
+    """Returns current version of the script.
+    """
+    return __version__
 
 
-def join_with_base(base_path, url):
-    if base_path.endswith('/'):
-        base_path = base_path[:-1]
-    if url.startswith('/'):
-        url = url[1:]
-        o = urlparse(base_path)
-        base_path = f"{o.scheme}://{o.netloc}"
-    result = '/'.join([base_path, url])
-    return result
-
-
-def check_url_status(full_url):
-    req = requests.head(full_url)
-    return req.ok
-
-
-def check_url(base_path, url):
-    if not is_local_url(url):
-        return f"{url} [NON LOCAL -  SKIPPED]"
-    full_url = join_with_base(base_path, url)
-    status_ok = check_url_status(full_url)
-    click.echo(f"  - {full_url} {OK if status_ok else ERROR}")
-    return status_ok
-
-
-class LinkExtractor(HTMLParser):
-
-    def __init__(self, *args, **kwargs):
-        super(LinkExtractor, self).__init__(*args, **kwargs)
-        self.links = set()
-        self.images = set()
-        self.styles = set()
-        self.scripts = set()
-
-    def all_links(self):
-        return itertools.chain(
-            self.styles,
-            self.scripts,
-            self.images,
-            self.links,
-        )
-
-
-    def handle_starttag(self, tag, attrs):
-        parameters = dict(attrs)
-        if tag == 'a':
-            if url := parameters.get('href'):
-                self.links.add(url)
-        elif tag == 'link':
-            if url := parameters.get('href'):
-                self.styles.add(url)
-        elif tag == 'img':
-            if url := parameters.get('src'):
-                self.images.add(url)
-        elif tag == 'script':
-            if url := parameters.get('src'):
-                self.scripts.add(url)
-
-
-def check_page(base_path, url):
-    parser = LinkExtractor()
-    req = requests.get(url)
-    parser.feed(req.text)
-    click.echo(f'Links (Anchors) found ({len(parser.links)})')
-    num_errors = 0
-    for url in parser.all_links():
-        num_errors += 0 if check_url(base_path, url) else 1
-    return num_errors, parser.links
-
-
-def db_pending_urls(db):
-    cursor = db.cursor()
-    cursor.execute("SELECT url FROM page WHERE is_checked = 0")
-    for row in cursor.fetchall():
-        yield row[0]
-
-
-@click.command()
-@click.option('--path', default='/', help="Path inside the webserver")
-@click.option('--port', default=80, help="Port of web server")
-@click.argument('host', default='localhost')
-def main(host, port, path):
-    base_path = f'http://{host}:{port}/'
-    if path:
-        base_path = join_with_base(base_path, path)
-    db = db_connect()
-    add_url(db, base_path)
-    for url in db_pending_urls(db):
-        click.echo(f'Start crawling on {base_path}')
-        num_errors, new_links = check_page(base_path, url)
-        mark_url_as_checked(db, url, num_errors)
+def main():
+    fire.Fire({
+        "version": version,
+        "status": status,
+        "start": start,
+        "dump": dump,
+        "list": _list,
+        "advance": advance,
+    })
 
 
 if __name__ == "__main__":

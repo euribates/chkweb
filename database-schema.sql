@@ -7,3 +7,10 @@ CREATE TABLE IF NOT EXISTS page (
     );
 
 
+CREATE TABLE IF NOT EXISTS error (
+    id_error INTEGER PRIMARY KEY,
+    page_id INTEGER NOT NULL,
+    message TEXT,
+    FOREIGN KEY(page_id) REFERENCES page(id_page)
+    );
+
