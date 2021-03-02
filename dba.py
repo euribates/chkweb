@@ -89,6 +89,16 @@ def get_all_pages(db):
     yield from _rows(db, sql)
 
 
+def get_all_errors(db):
+    sql = """
+        SELECT p.url, e.message
+          FROM error e
+          LEFT JOIN page p ON p.id_page = e.page_id
+         ORDER BY e.page_id
+         """
+    yield from _rows(db, sql)
+
+
 def exists_url(db, url):
     sql = "SELECT count(*) FROM  page WHERE url = ?"
     return _scalar(db, sql, url, cast=bool)

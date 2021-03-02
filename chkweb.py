@@ -51,7 +51,16 @@ def dump(db=None):
     db = db or dba.connect()
     print("id_page;url;created_at;is_checked;num_errors")
     for row in dba.get_all_pages(db):
-        print(*row, sep=";")
+        print(*row, sep="|")
+
+
+def errors(db=None):
+    """List all the errors found in the crawl.
+    """
+    db = db or dba.connect()
+    print("id_page|message")
+    for row in dba.get_all_errors(db):
+        print(*row, sep="|")
 
 
 def start(base_url='http://localhost/'):
@@ -95,6 +104,7 @@ def main():
         "start": start,
         "dump": dump,
         "list": _list,
+        "errors": errors,
         "advance": advance,
     })
 
