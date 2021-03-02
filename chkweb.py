@@ -9,7 +9,7 @@ import settings
 import checks
 import dba
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 OK = "[OK] \u001b[32m✓\u001b[0m"
 
@@ -66,7 +66,7 @@ def start(base_url='http://localhost/'):
     advance(db)
 
 
-def advance(db=None):
+def advance(db=None, limit=settings.ADVANCE_LIMIT):
     db = db or dba.connect()
     for (i, page) in enumerate(dba.pending_urls(db)):
         url = page['url']
@@ -78,7 +78,7 @@ def advance(db=None):
         for new_url in new_links:
             dba.add_url(db, new_url)
             assert dba.exists_url(db, new_url)
-        if i > 10:
+        if limit > 0 and i > limit:
             break
 
 

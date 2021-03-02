@@ -8,6 +8,8 @@ from prettyconf import config
 
 PROJECT_ROOT = pathlib.Path(os.path.normpath(os.path.split(__file__)[0]))
 
+ADVANCE_LIMIT = config('CHKWEB_ADVANCE_LIMIT', default=10, cast=int)
+
 LOG_PATH = PROJECT_ROOT / 'logs'
 if not os.path.isdir(LOG_PATH):
     os.mkdir(LOG_PATH)
