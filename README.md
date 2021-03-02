@@ -35,6 +35,10 @@ by default.
 
 ### TODO things
 
+- Add a plugin system to perform custom checks
+
+- Add a new subcommand to make the tests from a given list of urls
+
 - Add an option to select the name and path of the database file. Alos include
   in the `settings.py` file.
 
