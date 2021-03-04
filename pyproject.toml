@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "chkweb"
+version = "0.1.4"
+description = "A very simple web crawler and checker"
+authors = ["Juan Ignacio Rodriguez de Leon <euribates@gmail.com>"]
+license = "GNU General Public License version 3"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+fire = "^0.4.0"
+requests = "^2.25.1"
+prettyconf = "^2.2.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
