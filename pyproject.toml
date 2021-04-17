@@ -1,9 +1,14 @@
 [tool.poetry]
 name = "chkweb"
-version = "0.1.4"
+version = "0.1.5"
 description = "A very simple web crawler and checker"
 authors = ["Juan Ignacio Rodriguez de Leon <euribates@gmail.com>"]
-license = "GNU General Public License version 3"
+license = 'GPL-3.0-or-later'
+repository = "https://github.com/euribates/chkweb.git"
+readme = 'README.md'
+
+[tool.poetry.scripts]
+chkweb = 'chkweb:main'
 
 [tool.poetry.dependencies]
 python = "^3.8"
