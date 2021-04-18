@@ -68,18 +68,18 @@ def load_content_from_url(url):
     try:
         resp = requests.get(url)
         if resp.ok:
-            return True, resp.text
+            return True, resp.text, resp.headers
         else:
-            return False, f"{resp.status_code} {resp.reason} {url}"
+            return False, f"{resp.status_code} {resp.reason} {url}", resp.headers
     except ConnectionError as err:
-        return False, str(err)
+        return False, str(err), {}
 
 
 def check_page(url):
     logger.info('Checking %s:', url)
-    is_ok, text = load_content_from_url(url)
+    is_ok, text, headers = load_content_from_url(url)
     if not is_ok:
-        return [text], []
+        return [text], [], headers
     parser = LinkExtractor(url)
     parser.feed(text)
     logger.info(' - Found %s Links (Anchors)', len(parser.links))
@@ -92,4 +92,4 @@ def check_page(url):
             errors.append(message)
         else:
             logging.info(message)
-    return errors, [urljoin(url, _) for _ in parser.links]
+    return errors, [urljoin(url, _) for _ in parser.links], headers

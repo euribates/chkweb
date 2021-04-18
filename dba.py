@@ -113,16 +113,18 @@ def add_url(db, url):
         return result
 
 
-def mark_url_as_checked(db, url, errors):
+def mark_url_as_checked(db, url, errors, headers):
     id_page = _scalar(db, "SELECT id_page FROM page WHERE url = ?", url)
+    powered_by = headers.get('X-Powered-By')
     with db:
         sql = (
             "UPDATE page"
             "   SET is_checked = 1,"
-            "       num_errors = ?"
+            "       num_errors = ?,"
+            "       powered_by = ?"
             " WHERE id_page = ?"
         )
-        db.execute(sql, (len(errors), id_page,))
+        db.execute(sql, (len(errors), powered_by, id_page,))
         result = 1
         db.execute("DELETE FROM error WHERE page_id = ?", (id_page, ))
         for err in errors:

@@ -3,7 +3,8 @@ CREATE TABLE IF NOT EXISTS page (
     url varchar not null unique,
     created_at text default CURRENT_TIMESTAMP,
     is_checked text integer default 0,
-    num_errors integer default 0
+    num_errors integer default 0,
+    powered_by varchar default null
     );
 
 

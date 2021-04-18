@@ -9,7 +9,7 @@ import settings
 import checks
 import dba
 
-__version__ = "0.1.4"
+__version__ = "0.1.6"
 
 OK = "[OK] \u001b[32m✓\u001b[0m"
 
@@ -49,7 +49,7 @@ def dump(db=None):
     """Dunmp all the address in CVS format.
     """
     db = db or dba.connect()
-    print("id_page;url;created_at;is_checked;num_errors")
+    print("id_page;url;created_at;is_checked;num_errors;powered_by")
     for row in dba.get_all_pages(db):
         print(*row, sep="|")
 
@@ -81,9 +81,9 @@ def advance(db=None, limit=settings.ADVANCE_LIMIT):
         url = page['url']
         logger.info('Checking %s', url)
         print(f"- checking {url}", end=' ')
-        list_of_errors, new_links = checks.check_page(url)
+        list_of_errors, new_links, headers = checks.check_page(url)
         print(ERROR if list_of_errors else OK)
-        dba.mark_url_as_checked(db, url, list_of_errors)
+        dba.mark_url_as_checked(db, url, list_of_errors, headers)
         for new_url in new_links:
             dba.add_url(db, new_url)
             assert dba.exists_url(db, new_url)
